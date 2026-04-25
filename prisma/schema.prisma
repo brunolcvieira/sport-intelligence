@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model League {
+  id        Int        @id
+  name      String
+  country   String
+  logo      String?
+  season    Int
+  fixtures  Fixture[]
+  standings Standing[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Team {
+  id           Int        @id
+  name         String
+  shortName    String?
+  logo         String?
+  country      String?
+  homeFixtures Fixture[]  @relation("HomeTeam")
+  awayFixtures Fixture[]  @relation("AwayTeam")
+  standings    Standing[]
+  teamForms    TeamForm[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Fixture {
+  id         Int            @id
+  date       DateTime
+  status     String         // NS | 1H | HT | 2H | ET | P | FT | AET | PEN | BT | SUSP | INT | PST | CANC | ABD | AWD | WO | LIVE
+  homeTeamId Int
+  awayTeamId Int
+  leagueId   Int
+  homeTeam   Team           @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam   Team           @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  league     League         @relation(fields: [leagueId], references: [id])
+  homeGoals  Int?
+  awayGoals  Int?
+  venue      String?
+  round      String?
+  season     Int
+  analysis   MatchAnalysis?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
+model Standing {
+  id           Int      @id @default(autoincrement())
+  leagueId     Int
+  teamId       Int
+  season       Int
+  rank         Int
+  points       Int
+  played       Int
+  wins         Int
+  draws        Int
+  losses       Int
+  goalsFor     Int
+  goalsAgainst Int
+  goalDiff     Int
+  homeWins     Int      @default(0)
+  homeDraws    Int      @default(0)
+  homeLosses   Int      @default(0)
+  homeFor      Int      @default(0)
+  homeAgainst  Int      @default(0)
+  awayWins     Int      @default(0)
+  awayDraws    Int      @default(0)
+  awayLosses   Int      @default(0)
+  awayFor      Int      @default(0)
+  awayAgainst  Int      @default(0)
+  form         String?
+  league       League   @relation(fields: [leagueId], references: [id])
+  team         Team     @relation(fields: [teamId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([leagueId, teamId, season])
+}
+
+model TeamForm {
+  id              Int      @id @default(autoincrement())
+  teamId          Int
+  leagueId        Int
+  season          Int
+  last5           String   // JSON: [{result:"W",goalsFor:2,goalsAgainst:0}]
+  avgGoalsFor     Float    @default(0)
+  avgGoalsAgainst Float    @default(0)
+  winRate5        Float    @default(0)
+  team            Team     @relation(fields: [teamId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([teamId, leagueId, season])
+}
+
+model MatchAnalysis {
+  id            Int      @id @default(autoincrement())
+  fixtureId     Int      @unique
+  fixture       Fixture  @relation(fields: [fixtureId], references: [id])
+  homeScore     Float    @default(0)
+  awayScore     Float    @default(0)
+  homeWinPct    Float    @default(0)
+  drawPct       Float    @default(0)
+  awayWinPct    Float    @default(0)
+  favorite      String?  // "home" | "away" | "draw"
+  confidence    String   @default("low") // "low" | "medium" | "high"
+  drawTendency  String   @default("low") // "low" | "medium" | "high"
+  homeContext   String?  // JSON CompetitiveContext
+  awayContext   String?  // JSON CompetitiveContext
+  textSummary   String?  @db.Text
+  rawData       Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model DailyReport {
+  id            Int      @id @default(autoincrement())
+  date          DateTime @unique
+  totalFixtures Int      @default(0)
+  analysed      Int      @default(0)
+  status        String   @default("pending") // "pending" | "running" | "done" | "error"
+  errorMsg      String?
+  executionMs   Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
