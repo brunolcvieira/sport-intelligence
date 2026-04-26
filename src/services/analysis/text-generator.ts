@@ -16,7 +16,7 @@ export async function generateTextSummary(analysis: MatchAnalysisResult): Promis
 }
 
 function buildBaseText(a: MatchAnalysisResult): string {
-  const { homeTeam: h, awayTeam: aw, homeCtx, awayCtx } = a;
+  const { homeTeam: h, awayTeam: aw } = a;
 
   const favoriteLabel =
     a.favorite === "home"
