@@ -6,16 +6,21 @@ import { formatDate, todayISO } from "@/lib/utils";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { RefreshButton } from "./RefreshButton";
 
-interface PageProps {
-  searchParams: { date?: string; league?: string };
-}
+type PageProps = {
+  searchParams: Promise<{
+    date?: string;
+    league?: string;
+  }>;
+};
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function DashboardPage({ searchParams }: PageProps) {
-  const date = searchParams.date ?? todayISO();
-  const leagueFilter = searchParams.league ? Number(searchParams.league) : undefined;
+  const params = await searchParams;
+
+  const date = params.date ?? todayISO();
+  const leagueFilter = params.league ? Number(params.league) : undefined;
 
   let fixtures = await getFixturesForDate(date);
 
@@ -23,11 +28,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     fixtures = fixtures.filter((f) => f.leagueId === leagueFilter);
   }
 
-  const leagues = [...new Map(fixtures.map((f) => [f.leagueId, f.league])).values()];
+  const leagues = [
+    ...new Map(fixtures.map((f) => [f.leagueId, f.league])).values(),
+  ];
 
   return (
     <div className="min-h-screen bg-[#050d14]">
-      {/* Top nav */}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050d14]/90 backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -37,7 +43,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Date picker */}
             <form method="GET">
               <input
                 type="date"
@@ -45,28 +50,36 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 defaultValue={date}
                 className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/80 focus:outline-none focus:border-cyan-500/50"
               />
-              {leagueFilter && <input type="hidden" name="league" value={leagueFilter} />}
+
+              {leagueFilter && (
+                <input type="hidden" name="league" value={leagueFilter} />
+              )}
             </form>
+
             <RefreshButton />
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
-        {/* Date heading */}
         <div className="mb-6">
           <h1 className="text-xl font-bold text-white">
             Jogos de {formatDate(date)}
           </h1>
+
           <p className="text-sm text-white/40 mt-0.5">
             Análise estatística automatizada — não constitui recomendação de aposta
           </p>
         </div>
 
-        {/* League filter pills */}
         {leagues.length > 1 && (
           <div className="flex gap-2 flex-wrap mb-5">
-            <FilterPill href={`/dashboard?date=${date}`} active={!leagueFilter} label="Todas" />
+            <FilterPill
+              href={`/dashboard?date=${date}`}
+              active={!leagueFilter}
+              label="Todas"
+            />
+
             {leagues.map((l) => (
               <FilterPill
                 key={l.id}
@@ -78,7 +91,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        <Suspense fallback={<div className="flex justify-center py-20"><LoadingSpinner size={40} /></div>}>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-20">
+              <LoadingSpinner size={40} />
+            </div>
+          }
+        >
           <StatsBar fixtures={fixtures} />
           <MatchList fixtures={fixtures} />
         </Suspense>
@@ -87,7 +106,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   );
 }
 
-function FilterPill({ href, active, label }: { href: string; active: boolean; label: string }) {
+function FilterPill({
+  href,
+  active,
+  label,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+}) {
   return (
     <a
       href={href}
