@@ -3,7 +3,9 @@ import type { MatchAnalysisResult } from "@/types/analysis";
 // Generates structured text analysis without requiring an AI API.
 // If OPENAI_API_KEY is set, enhances the summary with GPT-4o.
 
-export async function generateTextSummary(analysis: MatchAnalysisResult): Promise<string> {
+export async function generateTextSummary(
+  analysis: MatchAnalysisResult
+): Promise<string> {
   const base = buildBaseText(analysis);
 
   if (!process.env.OPENAI_API_KEY) return base;
@@ -11,7 +13,7 @@ export async function generateTextSummary(analysis: MatchAnalysisResult): Promis
   try {
     return await enhanceWithAI(base, analysis);
   } catch {
-    return base; // graceful fallback
+    return base;
   }
 }
 
@@ -20,13 +22,17 @@ function buildBaseText(a: MatchAnalysisResult): string {
 
   const favoriteLabel =
     a.favorite === "home"
-      ? `${h.name}`
+      ? h.name
       : a.favorite === "away"
-      ? `${aw.name}`
+      ? aw.name
       : "Empate";
 
   const confLabel =
-    a.confidence === "high" ? "Alta" : a.confidence === "medium" ? "Média" : "Baixa";
+    a.confidence === "high"
+      ? "Alta"
+      : a.confidence === "medium"
+      ? "Média"
+      : "Baixa";
 
   const drawLabel =
     a.drawTendency === "high"
@@ -36,7 +42,6 @@ function buildBaseText(a: MatchAnalysisResult): string {
       : "Baixa";
 
   const trend = buildTrendText(a);
-  const context = buildContextText(a);
   const alerts = a.alerts.length ? `⚠️ Alerta: ${a.alerts.join(" | ")}` : "";
 
   return `
@@ -44,7 +49,6 @@ function buildBaseText(a: MatchAnalysisResult): string {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🏟️  ${h.name} vs ${aw.name}
-🏆  ${a.homeCtx.objectiveLabel}  ←→  ${a.awayCtx.objectiveLabel}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎯 FAVORITO: ${favoriteLabel}
@@ -60,7 +64,7 @@ function buildBaseText(a: MatchAnalysisResult): string {
 ${trend}
 
 🏟️ CONTEXTO DA TABELA
-${context}
+Dados de contexto competitivo não disponíveis nesta versão.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔵 TENDÊNCIA DE EMPATE: ${drawLabel}
@@ -99,41 +103,44 @@ function buildTrendText(a: MatchAnalysisResult): string {
   const aw = a.awayTeam;
 
   if (a.favorite === "home" && a.confidence === "high") {
-    return `${h.name} entra como favorito claro. Melhor posição na tabela (${h.rank}º vs ${aw.rank}º), melhor forma recente (${h.form.slice(-5)}) e vantagem de jogar em casa constroem esse favoritismo. O visitante precisará de uma atuação acima da média para surpreender.`;
+    return `${h.name} entra como favorito claro. Melhor posição na tabela (${h.rank}º vs ${aw.rank}º), melhor forma recente (${h.form.slice(
+      -5
+    )}) e vantagem de jogar em casa constroem esse favoritismo. O visitante precisará de uma atuação acima da média para surpreender.`;
   }
+
   if (a.favorite === "away" && a.confidence === "high") {
-    return `Apesar de jogar fora, ${aw.name} chega como favorito. Superioridade na tabela (${aw.rank}º vs ${h.rank}º) e melhor forma recente (${aw.form.slice(-5)}) justificam o prognóstico. O mandante precisará superar o fator casa para compensar a desvantagem técnica.`;
+    return `Apesar de jogar fora, ${aw.name} chega como favorito. Superioridade na tabela (${aw.rank}º vs ${h.rank}º) e melhor forma recente (${aw.form.slice(
+      -5
+    )}) justificam o prognóstico. O mandante precisará superar o fator casa para compensar a desvantagem técnica.`;
   }
+
   if (a.confidence === "low") {
     return `Jogo de alto equilíbrio. ${h.name} (${h.rank}º) e ${aw.name} (${aw.rank}º) estão próximos em força. Qualquer resultado é plausível — cenário de baixa previsibilidade.`;
   }
-  return `${a.favorite === "home" ? h.name : aw.name} tem leve vantagem, mas o jogo pode ser decidido nos detalhes. Forma recente e motivação no campeonato são os fatores decisivos.`;
+
+  return `${
+    a.favorite === "home" ? h.name : aw.name
+  } tem leve vantagem, mas o jogo pode ser decidido nos detalhes. Forma recente e motivação no campeonato são os fatores decisivos.`;
 }
 
-function buildContextText(a: MatchAnalysisResult): string {
-  const h = a.homeTeam;
-  const aw = a.awayTeam;
-  const hCtx = a.homeCtx;
-  const awCtx = a.awayCtx;
-
-  const hLine = `${h.name} (${h.rank}º, ${h.points} pts) — ${hCtx.objectiveLabel}${hCtx.isDecisive ? " ⚡ JOGO DECISIVO" : ""}.`;
-  const awLine = `${aw.name} (${aw.rank}º, ${aw.points} pts) — ${awCtx.objectiveLabel}${awCtx.isDecisive ? " ⚡ JOGO DECISIVO" : ""}.`;
-
-  return `${hLine}\n${awLine}`;
-}
-
-async function enhanceWithAI(baseText: string, a: MatchAnalysisResult): Promise<string> {
+async function enhanceWithAI(
+  baseText: string,
+  a: MatchAnalysisResult
+): Promise<string> {
   const { default: OpenAI } = await import("openai");
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const prompt = `Você é um analista de futebol sênior. Baseado nos dados a seguir, escreva um parágrafo de leitura do jogo em português com linguagem profissional e objetiva. Máximo 5 linhas.
 
 Dados:
-${a.homeTeam.name} (${a.homeTeam.rank}º, ${a.homeTeam.points} pts, forma: ${a.homeTeam.form.slice(-5)}, média gols: ${a.homeTeam.avgGoalsFor.toFixed(1)})
-${a.awayTeam.name} (${a.awayTeam.rank}º, ${a.awayTeam.points} pts, forma: ${a.awayTeam.form.slice(-5)}, média gols: ${a.awayTeam.avgGoalsFor.toFixed(1)})
+${a.homeTeam.name} (${a.homeTeam.rank}º, ${a.homeTeam.points} pts, forma: ${a.homeTeam.form.slice(
+    -5
+  )}, média gols: ${a.homeTeam.avgGoalsFor.toFixed(1)})
+${a.awayTeam.name} (${a.awayTeam.rank}º, ${a.awayTeam.points} pts, forma: ${a.awayTeam.form.slice(
+    -5
+  )}, média gols: ${a.awayTeam.avgGoalsFor.toFixed(1)})
 Favorito: ${a.favorite} | Confiança: ${a.confidence}
-Probabilidades: Casa ${a.homeWinPct}% | Empate ${a.drawPct}% | Fora ${a.awayWinPct}%
-Contexto casa: ${a.homeCtx.objectiveLabel} | Contexto fora: ${a.awayCtx.objectiveLabel}`;
+Probabilidades: Casa ${a.homeWinPct}% | Empate ${a.drawPct}% | Fora ${a.awayWinPct}%`;
 
   const response = await client.chat.completions.create({
     model: "gpt-4o-mini",
@@ -155,18 +162,19 @@ export function buildAlerts(
 ): string[] {
   const alerts: string[] = [];
 
-  if (a.confidence === "low") alerts.push("Baixa confiança — múltiplos fatores de incerteza");
-  if (a.drawTendency === "high") alerts.push("Alta tendência de empate detectada");
+  if (a.confidence === "low") {
+    alerts.push("Baixa confiança — múltiplos fatores de incerteza");
+  }
+
+  if (a.drawTendency === "high") {
+    alerts.push("Alta tendência de empate detectada");
+  }
 
   const minPct = Math.min(a.homeWinPct, a.awayWinPct);
   const maxPct = Math.max(a.homeWinPct, a.awayWinPct);
-  if (maxPct - minPct < 10) alerts.push("Probabilidades muito próximas — jogo imprevisível");
 
-  if (a.homeCtx.objective === "already_relegated" || a.awayCtx.objective === "already_relegated") {
-    alerts.push("Um dos times está rebaixado — motivação reduzida");
-  }
-  if (a.homeCtx.isDecisive || a.awayCtx.isDecisive) {
-    alerts.push("Jogo decisivo para um ou ambos os times");
+  if (maxPct - minPct < 10) {
+    alerts.push("Probabilidades muito próximas — jogo imprevisível");
   }
 
   return alerts;
